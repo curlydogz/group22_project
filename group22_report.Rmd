@@ -1,5 +1,5 @@
 ---
-title: "A Mixed-Integer Linear Program for Ebola Vaccine Campaign in Ohio Emergency Response Region #4"
+title: "A Mixed-Integer Linear Program for Ebola Vaccine Campaign in Ohio Emergency Response Region 4"
 author: "Daphne Kaur (kaur.443), Joshua Brown (brown.8675), Ajit Ubhi (ubhi.4)"
 date: "`r Sys.Date()`"
 output: 
@@ -9,17 +9,20 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 ```
 
-The 2026 World Cup is projected to be the largest coordinated sporting event in history, with 104 matches held across North America over a five-week period. An anticipated influx of approximately 6 million international visitors poses heightened concerns regarding the potential introduction and spread of novel infectious diseases. Among these, Ebola remains a significant threat due to its high transmissibility and a historical case-fatality rate near 50%. Following the declaration of an active Ebola outbreak in the Democratic Republic of the Congo on September 4th, 2025, the need for proactive preparedness in the United States became even more pressing.
+The World Cup 2026 is expected to be the largest event of its kind in all of history. The equivalent of 104 Super Bowls will be held in North America in just five weeks. This event will bring as many as 6 million foreigners into the United States, increasing concerns for the introduction of novel infectious diseases. One disease of major concern is Ebola, a highly infectious viral fever that kills about half of those infected. On September 4th, 2025, an active outbreak of Ebola was declared in the Democratic Republic of the Congo, further heightening concerns from public health workers. A vaccine for Ebola was approved by the CDC in 2019 and is 84% effective. Though the current supply of vaccines is limited, production could be significantly increased in the event of a serious outbreak and vaccination clinic offered to the general public. Planning for such an event can be exceedingly complicated with many variables that must be considered. The creation of a linear program that appropriately models needs for the planning of vaccine campaigns could save lives and reduce burden on public health workers. The goal of this project was to develop a Mixed Integer Linear Programming Model which allows the user to quickly create a staffing plan that maximizes the number of people vaccinated in Ohio Emergency Response Region 4 over a week.
 
-A highly effective Ebola vaccine—approved by the CDC in 2019 with an efficacy of roughly 84%—serves as a critical tool for mitigating outbreak risk. However, current vaccine reserves are limited, and large-scale production would only be expanded in the event of a major emergency. To support strategic planning, this project develops a Mixed-Integer Linear Programming (MILP) model designed to maximize the number of individuals vaccinated in Ohio Emergency Response Region #4 during a single operational week.
+
+
+## Assumptions
 
 > The assumptions of the model are as follows:
 >
 > - The Ebola vaccine is able to be manufactured in sufficient quantities to permit it's use in vaccination campaigns.
 > - The number of available vaccines, vaccinating staff, administrative staff, population and proportion of vaccinated individuals in each county, and building square footage are known and fixed.
-> - The objective is to maximize the number of vaccinated persons and assumes that all people living in Region #4 are of equal priority.
+> - The objective is to maximize the number of vaccinated persons and assumes that all people living in Region 4 are of equal priority.
 > - Staff members are interchangeable between team types and are unrestricted in assignment to county or team type within the region. All teams work 40 hours per week in the same location.
 > - The number of available adminstrative staff always outnumbers availible vaccinating staff.
 > - The unvaccinated populations in a county will participate in the vaccine clinic at a maximum rate of exactly 10% per week.
@@ -29,23 +32,69 @@ A highly effective Ebola vaccine—approved by the CDC in 2019 with an efficacy 
 
 ## Sets
 
-Two sets \(I\) and \(K\) are used to represent county names and team types. They are:
-
-> \(I =\) counties in Ohio Emergency Response Region \#4 \{Franklin, Hardin, Logan, Wyandot, Delaware, Marion, Fayette, Pickaway, Union, Crawford, Morrow, Knox, Licking, Fairfield, Madison\}
+> \(I =\) counties in Ohio Emergency Response Region 4 \{Franklin, Hardin, Logan, Wyandot, Delaware, Marion, Fayette, Pickaway, Union, Crawford, Morrow, Knox, Licking, Fairfield, Madison\}
 >
 > \(K =\) team types \{1to1, 3to1, 7to1\}
+
+These sets are used throughout this report to represent represent county names and team types. I includes the names of the 13 counties that have been designated as Ohio Emergency Response Region 4. Emergency response regions are created to allow counties to plan the sharing of staff and other resources in the event of an emergency.  
+
+\begin{center}
+\textbf{Figure 1. Map of Ohio Emergency Response Region 4}
+\end{center}
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', out.width="70%", fig.align='center'}
+library(sf)
+library(tigris)
+library(dplyr)
+library(ggplot2)
+
+options(tigris_use_cache = TRUE)
+
+region4 <- c("Franklin","Delaware","Licking","Fairfield","Union","Marion",
+             "Knox","Pickaway","Logan","Madison","Crawford","Morrow",
+             "Hardin","Fayette","Wyandot")
+
+ohio <- counties(state = "OH", cb = TRUE, year = 2021) %>%
+  st_as_sf() %>%
+  mutate(
+    Region4 = ifelse(NAME %in% region4, TRUE, FALSE)
+  )
+
+ggplot(ohio) +
+  geom_sf(aes(fill = Region4), color = "black", size = 0.25) +
+  scale_fill_manual(
+    values = c("TRUE" = "#33c6c3", "FALSE" = "gray85")
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.title = element_blank(),
+    axis.text = element_blank(),    # REMOVE COORDINATE LABELS
+    axis.ticks = element_blank(),   # REMOVE TICKS
+    panel.grid = element_blank(),   # REMOVE GRID
+    panel.border = element_blank()
+  )
+
+
+```
+
 
 ![](C:/Users/kaurd\OneDrive/Documents/School/ISE 3230 - Sys Mod Optim Analysis/FinalProject/Sets.png)
 
 ## Decision Variables
 
 > \(t_{i\in I,\,k\in K} =\) the total number of teams of type \(k\) assigned to county \(i\)
+>
 > \(d_{i\in I} =\) the number of vaccines shipped to county \(i\)
+>
 > \(z_{i\in I} =\) total number of people vaccinated in county \(i\)
 
-The number of individuals vaccinated across the region depends directly on how staff teams and vaccine doses are allocated among counties. Each team type delivers vaccines at a distinct rate and requires a specific combination of vaccinating and administrative personnel. The allocation of vaccines further constrains how many individuals can be vaccinated in each location. These key quantities constitute the model's decision variables.
+The number of people who are vaccinated in the region is determined by the assignment of staff and associated allotment of vaccines. Vaccinating and administrative staff members are placed in team types of different ratios, which administer vaccines at different rates. These items make up the decision variables and are modeled below.
+
 
 ![](C:/Users/kaurd\OneDrive/Documents/School/ISE 3230 - Sys Mod Optim Analysis/FinalProject/Decision.png)
+
 
 ## Objective
 
@@ -53,7 +102,8 @@ The number of individuals vaccinated across the region depends directly on how s
 \text{Maximize } z = \sum_{i\in I} z_i
 \]
 
-Because public health operations often evolve rapidly during outbreaks, response planning is typically performed one week at a time. This objective function reflects that operational reality by maximizing the total number of individuals vaccinated across the region during a single week. The formulation enables planners to re-run the model at the start of subsequent weeks using updated parameter values without modifying the underlying structure.
+Since public health emergency plans are often made only one week at a time due to the potential for rapid change, the objective of this model is to optimize the number of people vaccinated over a week. The model optimizes the placement of staff and vaccine supplies in each county to ensure that the maximum number of people can be vaccinated, preventing accidental over-staffing. The model parameters may be updated at the beginning of the weekly planning period and used to optimize placements again.
+
 
 ![](C:/Users/kaurd\OneDrive/Documents/School/ISE 3230 - Sys Mod Optim Analysis/FinalProject/objective.png)
 
@@ -62,25 +112,34 @@ Because public health operations often evolve rapidly during outbreaks, response
 ### Primary Parameters
 
 > \(V =\) the number of available vaccines
+>
 > \(P_{i\in I} =\) the population of county \(i\)
+>
 > \(S_{i\in I} =\) the square footage of the clinic building in county \(i\)
+>
 > \(C_{i\in I} =\) the vaccine coverage in county \(i\), expressed as the proportion vaccinated
 
-The model requires several foundational parameters related to vaccine availability, population characteristics, and facility capacities. County-level populations were obtained from recent census data. Building sizes were simulated using a lognormal distribution to approximate the right-skew typical of real community structures such as schools and recreation centers. These simulated areas serve as reasonable estimates of the physical constraints that vaccination clinics would face.
+The model assumes that the number of available vaccines, vaccinating staff, administrative staff, population, the proportion of vaccinated individuals in each county, and building square footage are known, so this data must be provided.Population numbers have been obtained from census data for testing. Building areas were generated from a lognormal distribution to simulate the positive, right-skewed distribution of real building The simulated values for S_i are reasonable values to represent schools and community centers which are commonly chosen as the site for public health interventions.
+
 
 ![](C:/Users/kaurd\OneDrive/Documents/School/ISE 3230 - Sys Mod Optim Analysis/FinalProject/V.png)
 ![](C:/Users/kaurd\OneDrive/Documents/School/ISE 3230 - Sys Mod Optim Analysis/FinalProject/Pi.png)
 ![](C:/Users/kaurd\OneDrive/Documents/School/ISE 3230 - Sys Mod Optim Analysis/FinalProject/CiSi.png)
 
+
 ### Team Parameters
 
 > \(E_V =\) the number of available vaccinating staff
+>
 > \(E_A =\) the number of available administrative staff
+>
 > \(n_{V,\,k\in K} =\) the number of vaccinating staff in team \(k\)
+>
 > \(n_{A,\,k\in K} =\) the number of administrative staff in team \(k\)
+>
 > \(r_{k\in K} =\) the number of people that a team of type \(k\) can vaccinate in one hour
 
-Vaccination throughput depends heavily on staff configuration. Each team type reflects a different operational structure with a unique ratio of vaccinating to administrative personnel and a corresponding hourly vaccination rate. Table 1 summarizes the composition and throughput of the team types modeled, providing the foundation for staffing and capacity-related constraints.
+The team parameters are summarized below in Table 1.
 
 \begin{center}
 \textbf{Table 1. Summary Table of Team Parameters}
@@ -93,11 +152,13 @@ Vaccination throughput depends heavily on staff configuration. Each team type re
 
 Reasonable representative numbers for available staff have been chosen to demonstrate the model's capabilities.
 
-![](C:/Users/kaurd/OneDrive/Documents/School/ISE 3230 - Sys Mod Optim Analysis/FinalProject/team.png)
+
+![](C:/Users/kaurd\OneDrive/Documents/School/ISE 3230 - Sys Mod Optim Analysis/FinalProject/team.png)
+
 
 ## Constraints
 
-A wide range of operational, logistical, and ethical considerations influence the implementation of a high-volume vaccination campaign. To ensure realistic outcomes, the model incorporates ten categories of constraints that collectively restrict vaccine distribution, staffing, clinic operations, and equitable access. These constraints mirror challenges faced in real emergency planning contexts and define the feasible space of solutions.
+Though vaccine availability may present a major challenge in the case of an Ebola outbreak, many other difficult constraints are faced by vaccination campaigns. The model has ten types of constraints: vaccine supply, vaccinator availability, administrative staff availability, dose feasibility, herd immunity, participation, building size, throughput, fairness, and other constraints. Each is described and modeled as follows:
 
 ### 1. Vaccine supply
 
@@ -208,21 +269,28 @@ Fairness constraints take humanitarian issues into account. All people must be p
 
 
 
-### 10. Integrality
 
-All decision variables are non-negative integers.
+### 10. Integrality and Nonnegativity Constraints
 
 \[
 t_{i,k},\ d_i,\ z_i \in \mathbb{Z}_{\ge 0},\quad \forall i\in I,\ \forall k\in K
 \]
 
+\[
+V,\ E_V,\ E_A,\ P_i,\ n_{V,k},\ n_{A,k},\ r_k \in \mathbb{Z}_{\ge 0},\quad \forall i\in I,\ \forall k\in K
+\]
+
+\[
+S_i \ge 0,\quad 0 \le C_i \le 1,\quad \forall i\in I
+\]
+
+
 
 ## Results
 
-A representative model run using expected parameter values is summarized in Table 2. Counties with low baseline coverage are prioritized, provided they do not violate fairness requirements. Larger counties receive proportionally more doses and staffing due to their greater populations. All vaccinating staff and vaccines are fully utilized, while some administrative staff remain unused, reflecting their higher relative availability.
+### Output
 
-The values for $P_i$ used for model are the counties population at the last census. $S_i$ values are the simulated building sizes discussed in the parameter section above. For ease of interpretation, counties are listed descending order by population. Note that Licking county has access to an usually small clinic space, which has a negative effect on that county reaching herd immunity.
-
+A sample output from a run using expected values i shown in Table 2.This output demonstrates the expected functionality of the model. Counties with lower beginning coverage rates are prioritized to keep coverages within the fairness constraint, with more resources being allocated to counties with larger populations. All vaccinating staff and vaccines have been allocated, with some administrative staff overflowing and left unassigned. The values for $P_i$ used for model are the counties population at the last census. $S_i$ values are the simulated building sizes discussed in the parameter section above. For ease of interpretation, counties are listed descending order by population. Note that Licking county has access to an usually small clinic space, which has a negative effect on that county reaching herd immunity as shown later. The values used for $P_i$ and $S_i$ are shown in Table 3.
 
 \begin{center}
 \textbf{Table 2. Representative Output ($V=$ 150,000,$E_V$ = 205,$E_A$ = 789)}
@@ -268,9 +336,98 @@ The values for $P_i$ used for model are the counties population at the last cens
 | Fayette  | 28,782             | 159,251                   |
 | Wyandot  | 21,394             | 72,137                    |
 
+\begin{center}
+\textbf{Figure 2. Bar Chart of Team Assignments}
+\end{center}
+```{r plot1, echo=FALSE, warning=FALSE, message=FALSE, results='hide', out.width="70%", fig.align='center'}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
 
+df_staff <- data.frame(
+  County = c("Franklin","Delaware","Licking","Fairfield","Union","Marion","Knox","Pickaway","Logan",
+             "Madison","Crawford","Morrow","Hardin","Fayette","Wyandot"),
+  t_1to1 = c(0,1,0,4,0,9,0,10,14,0,0,0,0,0,0),
+  t_1to3 = c(102,0,0,21,4,0,0,0,1,1,0,0,0,0,0),
+  t_1to7 = c(0,18,10,0,0,4,2,0,1,3,0,0,0,0,0)
+)
 
-### Performance Analysis by Parameter
+df_staff_long <- df_staff %>%
+  pivot_longer(cols = starts_with("t_"),
+               names_to = "TeamType",
+               values_to = "Count")
+
+teal_dark   <- "#004C46"
+teal_mid    <- "#1BA39C"
+teal_light  <- "#8FE6DF"
+
+ggplot(df_staff_long, aes(x = County, y = Count, fill = TeamType)) +
+  geom_col(width = 0.7, color = "grey40", linewidth = 0.4, radius = unit(3, "pt")) +
+  coord_flip() +
+  labs(x = "County", y = "Number of Teams") +
+  scale_fill_manual(
+    values = c("t_1to1" = teal_dark, "t_1to3" = teal_mid, "t_1to7" = teal_light),
+    name = "Team Type"
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    panel.grid = element_blank(),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 10),
+    legend.position = "right"
+  )
+```
+\begin{center}
+\textbf{Figure 3. Plot of Change in Vaccine Coverage}
+\end{center}
+```{r plot2, echo=FALSE, warning=FALSE, message=FALSE, results='hide', out.width="70%", fig.align='center'}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+df <- data.frame(
+  County = c("Franklin","Delaware","Licking","Fairfield","Union","Marion","Knox",
+             "Pickaway","Logan","Madison","Crawford","Morrow","Hardin","Fayette","Wyandot"),
+  Begin = c(0.1800,0.0900,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,0.0900,
+            0.1800,0.1800,0.1800,0.1800,0.1800),
+  End = c(0.2368,0.1810,0.0649,0.1000,0.0368,0.1000,0.0368,0.0368,0.1000,0.1810,
+          0.1800,0.1800,0.1800,0.1800,0.1800)
+)
+
+df_long <- df %>%
+  mutate(BeginPct = Begin * 100, EndPct = End * 100) %>%
+  select(County, BeginPct, EndPct) %>%
+  pivot_longer(cols = c(BeginPct, EndPct),
+               names_to = "Stage",
+               values_to = "Coverage") %>%
+  mutate(Stage = factor(Stage,
+                        levels = c("BeginPct", "EndPct"),
+                        labels = c("Beginning Coverage", "Ending Coverage")))
+
+teal_light <- "#A7FFEB"
+teal_dark  <- "#00796B"
+
+ggplot() +
+  geom_line(data = df_long,
+            aes(x = Coverage, y = reorder(County, Coverage), group = County),
+            color = "black", linewidth = 0.8) +
+  geom_point(data = df_long,
+             aes(x = Coverage, y = County, fill = Stage),
+             size = 4, shape = 21, color = "black", stroke = 0.7) +
+  scale_fill_manual(values = c("Beginning Coverage" = teal_light,
+                               "Ending Coverage" = teal_dark)) +
+  scale_x_continuous(limits = c(0, 30), expand = c(0,0)) +
+  labs(x = "Coverage (%)", y = NULL, fill = "Coverage Stage") +
+  theme_minimal(base_size = 10) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10),
+    legend.position = "right"
+  )
+```
+
+### Performance Analysis
 
 In order to asses the performance of the model, extreme and expected values of all parameters $V, E_v, E_a, C_i, S_i and P_i$ were tested and output evaluated. 
 
@@ -286,23 +443,29 @@ In order to asses the performance of the model, extreme and expected values of a
 
 > - $P_i$ :The model assigns staff and vaccines appropriately based on a county's population size. More resources are allocated to counties with greater populations to meet the fairness constraint, even if building size allows for much more staff.
 
-## 20 Week Simulation
+### 20 Week Simulation
 
-The model was extended into a 20-week iterative simulation to examine long-term progression toward herd immunity. Weekly coverage values were updated, and optimal allocations were recalculated at each step. The simulation demonstrated steady advancement in coverage, with all counties reaching the 80% threshold by week 20. Licking county was the final county to reach herd immunity due to its relatively low building size. This behavior reflects the model’s ability to consistently allocate resources efficiently while respecting participation, space, and fairness constraints.
+A 20 week simulation version of the model was run to asses model behavior over a longer term. This 20 week iterative run demonstrates how a vaccine campaign might progress from no coverage to full herd immunity. Vaccine coverage ($C_i$) was set at 0.0 for all counties and re-calculated at the end of each week to demonstrate cumulative effect.Values for $P_i$ and $S_i$ are as in Table 3. All other parameters were as above, assuming they remained the same over each week, though this simulation accommodates changes in vaccine availability and staff. The model proceeded as anticipated, staying within provided constraints and iteritively assigning staff to optimize the number of vaccines given. By week 20, all counties had reached herd immunity. The full code and output are available on GitHub.
+
 
 ## Appendices
 
 ### Appendix I - Video
+
 Video link
 
 ### Appendix II - GitHub
-The GitHub repository includes complete code for the 1-week and 20-week models, as well as output used in this report:  
+
+The GitHub repository includes a copy of this report, code for 1 week and 20 week simulations and their respective output.
+
 https://github.com/curlydogz/group22_project
 
 ### Appendix III - Contributions
 
-| Team Member | Modeling | Coding | Writing | Editing | Figures/Tables | Video |
-|-------------|----------|--------|---------|---------|----------------|-------|
-| Daphne Kaur | X | X | X | | X | |
-| Joshua Brown | X | X | | X | | X |
-| Ajit Ubhi | X | | | X | | X |
+| Team Member                 | Modeling | Coding | Writing | Editing | Figures/Tables | Video |
+|-----------------------------|----------|--------|---------|---------|----------------|-------|
+| Daphne Kaur (kaur.443)      | X        | X      | X       |         | X              |       |
+| Joshua Brown (brown.8675)   | X        | X      |         | X       |                | X     |
+| Ajit Ubhi (ubhi.4)          | X        |        |         | X       | X              | X     |
+
+
